@@ -50,3 +50,4 @@ tmp.todo
 time-tracking.md
 .env
 dev.db
+dev.db-*

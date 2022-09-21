@@ -11,15 +11,9 @@ datasource db {
 }
 
 model User {
-  id         Int            @unique
+  id         Int     @unique
   first_name String
   last_name  String?
   username   String?
-  address    StringAddress?
-}
-
-model StringAddress {
-  value  String
-  User   User   @relation(fields: [userId], references: [id])
-  userId Int    @unique
+  address    String?
 }

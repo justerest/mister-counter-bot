@@ -22,7 +22,6 @@
     "@typescript-eslint/no-empty-function": 0,
     "@typescript-eslint/no-inferrable-types": 0,
     "@typescript-eslint/no-namespace": 0,
-    "@typescript-eslint/prefer-readonly": "warn",
     "no-inner-declarations": 0,
     "simple-import-sort/imports": [
       "warn",

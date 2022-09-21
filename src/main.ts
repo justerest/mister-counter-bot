@@ -1,4 +1,4 @@
-import { PrismaClient, StringAddress } from '@prisma/client';
+import { PrismaClient, User } from '@prisma/client';
 import { Telegraf } from 'telegraf';
 
 import { BOT_TOKEN } from './env';
@@ -6,52 +6,69 @@ import { BOT_TOKEN } from './env';
 const prisma = new PrismaClient();
 const bot = new Telegraf(BOT_TOKEN);
 
-const shouldSetAddress: Set<number> = new Set();
+const userSessionMap: Map<number, UserSessionState> = new Map();
 
 enum BotCommand {
   GetAddress = 'getaddress',
   SetAddress = 'setaddress',
 }
 
+enum UserSessionState {
+  Default = 'Default',
+  SettingAddress = 'SettingAddress',
+}
+
 bot.start(async (ctx) => {
-  await prisma.user.create({ data: ctx.from });
+  await prisma.user.upsert({
+    where: { id: ctx.from.id },
+    create: ctx.from,
+    update: ctx.from,
+  });
 
   ctx.reply('Добро пожаловать!');
 });
 
 bot.help((ctx) => ctx.reply('Укажите адрес, передавайте показания по запросу бота.'));
 
-bot.command(BotCommand.SetAddress, (ctx) => {
-  shouldSetAddress.add(ctx.chat.id);
-  ctx.reply('Введите адрес');
+bot.command(BotCommand.SetAddress, async (ctx) => {
+  userSessionMap.set(ctx.from.id, UserSessionState.SettingAddress);
+
+  await ctx.reply('Введите адрес');
 });
 
 bot.command(BotCommand.GetAddress, async (ctx) => {
-  const address = await prisma.stringAddress.findUnique({ where: { userId: ctx.from.id } });
+  const user = await prisma.user.findUnique({ where: { id: ctx.from.id } });
 
-  if (address) {
-    ctx.reply(`Ваш адрес: ${address.value}`);
+  if (user?.address) {
+    await ctx.reply(`Ваш адрес: ${user.address}`);
   } else {
-    ctx.reply('Вы ещё не указали адрес');
+    await ctx.reply('Вы ещё не указали адрес');
   }
 });
 
 bot.on('text', async (ctx) => {
   console.log(ctx.message.text);
 
-  if (shouldSetAddress.has(ctx.chat.id)) {
-    shouldSetAddress.delete(ctx.chat.id);
+  const userSessionState = userSessionMap.get(ctx.chat.id);
 
-    const userId = ctx.from.id;
-    const addressRecord: StringAddress = { userId, value: ctx.message.text };
+  if (userSessionState === UserSessionState.SettingAddress) {
+    const user: User = {
+      id: ctx.from.id,
+      first_name: ctx.from.first_name,
+      last_name: ctx.from.last_name ?? null,
+      username: ctx.from.username ?? null,
+      address: ctx.message.text,
+    };
 
-    await prisma.stringAddress.upsert({
-      where: { userId },
-      create: addressRecord,
-      update: addressRecord,
+    await prisma.user.upsert({
+      where: { id: ctx.from.id },
+      create: user,
+      update: user,
     });
 
-    ctx.reply('Адрес сохранен');
+    userSessionMap.set(ctx.from.id, UserSessionState.Default);
+
+    await ctx.reply('Ваш адрес сохранен');
   }
 });
 

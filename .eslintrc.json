@@ -1,0 +1,53 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": [
+    "@typescript-eslint",
+    "simple-import-sort"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "ignorePatterns": [
+    "api"
+  ],
+  "parserOptions": {
+    "project": [
+      "tsconfig.json"
+    ]
+  },
+  "rules": {
+    "@typescript-eslint/ban-types": 0,
+    "@typescript-eslint/no-empty-function": 0,
+    "@typescript-eslint/no-inferrable-types": 0,
+    "@typescript-eslint/no-namespace": 0,
+    "@typescript-eslint/prefer-readonly": "warn",
+    "no-inner-declarations": 0,
+    "simple-import-sort/imports": [
+      "warn",
+      {
+        "groups": [
+          [
+            "^\\u0000"
+          ],
+          [
+            "^@angular"
+          ],
+          [
+            "^node:"
+          ],
+          [
+            "^@?\\w"
+          ],
+          [
+            "^api$"
+          ],
+          [
+            "^src"
+          ]
+        ]
+      }
+    ]
+  }
+}

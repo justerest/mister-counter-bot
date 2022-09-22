@@ -11,9 +11,18 @@ datasource db {
 }
 
 model User {
-  id         Int     @unique
+  id         Int        @unique
   first_name String
   last_name  String?
   username   String?
   address    String?
+  water_logs WaterLog[]
+}
+
+model WaterLog {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime
+  value      String
+  user_id    Int
+  user       User     @relation(fields: [user_id], references: [id])
 }

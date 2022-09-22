@@ -1,15 +1,16 @@
 import { User } from '@prisma/client';
-import { Scenes, session, Telegraf } from 'telegraf';
+import { Scenes, session } from 'telegraf';
 
+import { bot } from './bot';
 import { BotCommand } from './bot-command';
-import { BOT_TOKEN } from './env';
+import { LOG_WATER_SCENE, logWaterScene } from './log-water-scene';
 import { prisma } from './prisma';
 import { SET_ADDRESS_SCENE, setAddressScene } from './set-address-scene';
 
-const bot = new Telegraf<Scenes.SceneContext>(BOT_TOKEN);
+const scenes = new Scenes.Stage([setAddressScene(), logWaterScene()]);
 
 bot.use(session());
-bot.use(new Scenes.Stage([setAddressScene()]).middleware());
+bot.use(scenes.middleware());
 
 bot.start(async (ctx) => {
   const user: Omit<User, 'address'> = {
@@ -34,8 +35,6 @@ bot.start(async (ctx) => {
 
 bot.help((ctx) => ctx.reply('Укажите адрес, передавайте показания по запросу бота.'));
 
-bot.command(BotCommand.SetAddress, Scenes.Stage.enter<Scenes.SceneContext>(SET_ADDRESS_SCENE));
-
 bot.command(BotCommand.GetAddress, async (ctx) => {
   const user = await prisma.user.findUnique({ where: { id: ctx.from.id } });
 
@@ -46,15 +45,26 @@ bot.command(BotCommand.GetAddress, async (ctx) => {
   }
 });
 
+bot.command(BotCommand.SetAddress, Scenes.Stage.enter<Scenes.SceneContext>(SET_ADDRESS_SCENE));
+
+bot.command(BotCommand.LogWater, Scenes.Stage.enter<Scenes.SceneContext>(LOG_WATER_SCENE));
+
+bot.command(BotCommand.WaterLogHistory, async (ctx) => {
+  const waterLogs = await prisma.waterLog.findMany({ where: { user_id: ctx.from.id } });
+
+  if (waterLogs.length === 0) {
+    await ctx.reply(
+      `Вы ещё не передавали показаний. Чтобы передать показания используйте команду /${BotCommand.LogWater}`,
+    );
+
+    return;
+  }
+
+  await ctx.reply(
+    waterLogs
+      .map((waterLog) => `${waterLog.created_at.toLocaleDateString()} – ${waterLog.value}`)
+      .join('\n'),
+  );
+});
+
 bot.launch();
-
-// Enable graceful stop
-process.once('SIGINT', async () => {
-  bot.stop('SIGINT');
-  await prisma.$disconnect();
-});
-
-process.once('SIGTERM', async () => {
-  bot.stop('SIGTERM');
-  await prisma.$disconnect();
-});

@@ -3,6 +3,13 @@ import { BotCommand } from './commands/bot-command';
 import { prisma } from './prisma';
 
 export async function sendRemindNotification() {
-  const user = await prisma.user.findFirstOrThrow({ where: { username: 'justerest' } });
-  await bot.telegram.sendMessage(user.id, `Отправьте показания за воду – /${BotCommand.LogWater}`);
+  const users = await prisma.user.findMany();
+  await Promise.allSettled(
+    users.map((user) =>
+      bot.telegram.sendMessage(
+        user.id,
+        `Пора отправить показания за воду! Используйте команду /${BotCommand.LogWater}`,
+      ),
+    ),
+  );
 }

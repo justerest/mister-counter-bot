@@ -86,7 +86,7 @@ bot.command(BotCommand.WaterLogHistory, async (ctx) => {
 
 bot.command(AdminBotCommand.EmitRemindNotification, async (ctx) => {
   if (ctx.from.id === ADMIN_ID) {
-    await ctx.scene.enter(LOG_WATER_SCENE);
+    await sendRemindNotification();
   } else {
     await ctx.reply(UNKNOWN_MESSAGE_REPLY);
   }
@@ -121,7 +121,12 @@ bot.on('message', (ctx) => ctx.reply(UNKNOWN_MESSAGE_REPLY));
 
 bot.launch();
 
-const reminder = new RecurrenceRule(undefined, undefined, undefined, undefined, undefined, 55);
+const reminder = new RecurrenceRule();
+reminder.date = 18;
+reminder.hour = 10;
+reminder.minute = 30;
+reminder.tz = 'Asia/Yekaterinburg';
+
 scheduleJob(reminder, () => sendRemindNotification());
 
 process.on('SIGINT', () => gracefulShutdown());

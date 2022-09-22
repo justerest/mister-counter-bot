@@ -8,7 +8,17 @@ export const LOG_WATER_SCENE: string = 'LOG_WATER_SCENE';
 export function logWaterScene(): Scenes.BaseScene<Scenes.SceneContext> {
   const scene = new Scenes.BaseScene<Scenes.SceneContext>(LOG_WATER_SCENE);
 
-  scene.enter((ctx) => ctx.reply('Отправьте мне показания счетчика холодной воды'));
+  scene.enter(async (ctx) => {
+    const dayOfMonth = new Date().getDate();
+    if (15 <= dayOfMonth && dayOfMonth <= 21) {
+      await ctx.reply('Отправьте мне показания счетчика холодной воды');
+    } else {
+      await ctx.scene.leave();
+      await ctx.reply(
+        'Показания принимаются с 15 по 18. Я отправлю вам напоминание, когда придет время.',
+      );
+    }
+  });
 
   scene.on('text', async (ctx) => {
     const address = ctx.message.text;

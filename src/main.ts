@@ -1,11 +1,18 @@
 import { User } from '@prisma/client';
+import { gracefulShutdown, RecurrenceRule, scheduleJob } from 'node-schedule';
 import { Scenes, session } from 'telegraf';
 
 import { bot } from './bot';
-import { BotCommand } from './bot-command';
-import { LOG_WATER_SCENE, logWaterScene } from './log-water-scene';
+import { ADMIN_BOT_COMMAND_DESCRIPTION_MAP, AdminBotCommand } from './commands/admin-bot-command';
+import { BotCommand } from './commands/bot-command';
+import { ADMIN_ID } from './env';
 import { prisma } from './prisma';
-import { SET_ADDRESS_SCENE, setAddressScene } from './set-address-scene';
+import { LOG_WATER_SCENE, logWaterScene } from './scenes/log-water-scene';
+import { SET_ADDRESS_SCENE, setAddressScene } from './scenes/set-address-scene';
+import { sendRemindNotification } from './send-remind-notification';
+
+const UNKNOWN_MESSAGE_REPLY: string =
+  'Простите, не понимаю, что происходит. Выберите команду из списка меню.';
 
 const scenes = new Scenes.Stage([setAddressScene(), logWaterScene()]);
 
@@ -33,7 +40,17 @@ bot.start(async (ctx) => {
   }
 });
 
-bot.help((ctx) => ctx.reply('Укажите адрес, передавайте показания по запросу бота.'));
+bot.help(async (ctx) => {
+  await ctx.reply('Укажите адрес, передавайте показания по запросу бота.');
+
+  if (ctx.from.id === ADMIN_ID) {
+    const adminCommandsHelp = Object.values(AdminBotCommand)
+      .map((command) => `/${command} – ${ADMIN_BOT_COMMAND_DESCRIPTION_MAP[command]}`)
+      .join('\n');
+
+    await ctx.reply(`Admin actions:\n${adminCommandsHelp}`);
+  }
+});
 
 bot.command(BotCommand.GetAddress, async (ctx) => {
   const user = await prisma.user.findUnique({ where: { id: ctx.from.id } });
@@ -67,4 +84,45 @@ bot.command(BotCommand.WaterLogHistory, async (ctx) => {
   );
 });
 
+bot.command(AdminBotCommand.EmitRemindNotification, async (ctx) => {
+  if (ctx.from.id === ADMIN_ID) {
+    await ctx.scene.enter(LOG_WATER_SCENE);
+  } else {
+    await ctx.reply(UNKNOWN_MESSAGE_REPLY);
+  }
+});
+
+bot.command(AdminBotCommand.GetMonthReport, async (ctx) => {
+  if (ctx.from.id === ADMIN_ID) {
+    const now = new Date();
+    const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const monthWaterLogs = await prisma.waterLog.findMany({
+      where: { created_at: { gte: monthStartDate } },
+      include: { user: true },
+      orderBy: { user: { address: 'asc' } },
+    });
+
+    const reports = monthWaterLogs.map((waterLog) =>
+      [
+        waterLog.created_at.toLocaleDateString('ru-RU'),
+        waterLog.user.address ?? '(Адрес отсутствует)',
+        waterLog.value,
+      ].join('\n'),
+    );
+
+    await ctx.reply(reports.join('\n\n') || 'Показания не найдены');
+  } else {
+    await ctx.reply(UNKNOWN_MESSAGE_REPLY);
+  }
+});
+
+bot.on('message', (ctx) => ctx.reply(UNKNOWN_MESSAGE_REPLY));
+
 bot.launch();
+
+const reminder = new RecurrenceRule(undefined, undefined, undefined, undefined, undefined, 55);
+scheduleJob(reminder, () => sendRemindNotification());
+
+process.on('SIGINT', () => gracefulShutdown());
+process.on('SIGTERM', () => gracefulShutdown());

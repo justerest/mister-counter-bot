@@ -1,8 +1,8 @@
 import { User } from '@prisma/client';
 import { Scenes } from 'telegraf';
 
-import { BotCommand } from './bot-command';
-import { prisma } from './prisma';
+import { BotCommand } from '../commands/bot-command';
+import { prisma } from '../prisma';
 
 export const SET_ADDRESS_SCENE: string = 'SET_ADDRESS_SCENE';
 

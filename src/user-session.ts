@@ -69,8 +69,14 @@ export class UserSession {
   }
 
   async switchStageForce(stage: Stage): Promise<void> {
-    await this.stage.onAbort?.();
+    if (!this.isReenter(stage)) {
+      await this.stage.onAbort?.();
+    }
     await this.switchStage(stage);
+  }
+
+  private isReenter(stage: Stage): boolean {
+    return stage.constructor === this.stage.constructor;
   }
 
   async handleTextMessage(textMessage: string): Promise<void> {

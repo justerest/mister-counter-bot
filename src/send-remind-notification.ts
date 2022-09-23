@@ -1,15 +1,16 @@
-import { bot } from './bot';
-import { BotCommand } from './commands/bot-command';
+import { ADMIN_ID } from './env';
 import { prisma } from './prisma';
+import { sessionsService } from './sessions-service';
+import { LogWaterStage } from './stages/log-water-stage';
 
-export async function sendRemindNotification() {
-  const users = await prisma.user.findMany();
+export async function sendRemindNotification(): Promise<void> {
+  const users = await prisma.user.findMany({ where: { id: ADMIN_ID } });
+
   await Promise.allSettled(
     users.map((user) =>
-      bot.telegram.sendMessage(
-        user.id,
-        `Пора отправить показания за воду! Используйте команду /${BotCommand.LogWater}`,
-      ),
+      sessionsService
+        .get(user)
+        .then((userSession) => userSession.switchStageForce(new LogWaterStage())),
     ),
   );
 }
